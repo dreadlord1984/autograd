@@ -2,14 +2,13 @@
    on basic operations even without numpy."""
 from __future__ import absolute_import
 import warnings
-import sys
 from autograd.core import make_vjp
+from autograd.wrap_util import unary_to_nary
 
-def grad(fun, argnum=0):
-    def gradfun(*args,**kwargs):
-        vjp, _ = make_vjp(fun, argnum)(*args, **kwargs)
-        return vjp(1.0)
-    return gradfun
+@unary_to_nary
+def grad(fun, x):
+    vjp, _ = make_vjp(fun, x)
+    return vjp(1.0)
 
 # Non-numpy gradient checking functions.
 def nd(f, x, eps=1e-4):

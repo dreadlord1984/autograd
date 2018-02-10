@@ -5,9 +5,10 @@ from __future__ import print_function
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.stats.norm as norm
+from autograd.scipy.special import expit as sigmoid
 
 from autograd import grad
-from autograd.optimizers import adam
+from autograd.misc.optimizers import adam
 from data import load_mnist, save_images
 
 def diag_gaussian_log_density(x, mu, log_std):
@@ -29,7 +30,6 @@ def bernoulli_log_density(targets, unnormalized_logprobs):
     return np.sum(label_probabilities, axis=-1)   # Sum across pixels.
 
 def relu(x):    return np.maximum(0, x)
-def sigmoid(x): return 0.5 * (np.tanh(x) + 1)
 
 def init_net_params(scale, layer_sizes, rs=npr.RandomState(0)):
     """Build a (weights, biases) tuples for all layers."""
@@ -70,7 +70,7 @@ def vae_lower_bound(gen_params, rec_params, data, rs):
     q_means, q_log_stds = nn_predict_gaussian(rec_params, data)
     latents = sample_diag_gaussian(q_means, q_log_stds, rs)
     q_latents = diag_gaussian_log_density(latents, q_means, q_log_stds)
-    p_latents = diag_gaussian_log_density(latents, 0, 1)
+    p_latents = diag_gaussian_log_density(latents, 0, 0)
     likelihood = p_images_given_latents(gen_params, data, latents)
     return np.mean(p_latents + likelihood - q_latents)
 
@@ -90,9 +90,15 @@ if __name__ == '__main__':
 
     print("Loading training data...")
     N, train_images, _, test_images, _ = load_mnist()
-    on = train_images > 0.5
-    train_images = train_images * 0 - 1
-    train_images[on] = 1.0
+    def binarise(images):
+        on = images > 0.5
+        images = images * 0 - 1
+        images[on] = 1.0
+        return images
+
+    print("Binarising training data...")
+    train_images = binarise(train_images)
+    test_images = binarise(test_images)
 
     init_gen_params = init_net_params(param_scale, gen_layer_sizes)
     init_rec_params = init_net_params(param_scale, rec_layer_sizes)
@@ -113,12 +119,16 @@ if __name__ == '__main__':
     # Get gradients of objective using autograd.
     objective_grad = grad(objective)
 
-    print("     Epoch     |    Objective  |       Fake probability | Real Probability  ")
+    print("     Epoch     |    Objective       |    Test ELBO  ")
     def print_perf(combined_params, iter, grad):
         if iter % 10 == 0:
             gen_params, rec_params = combined_params
             bound = np.mean(objective(combined_params, iter))
-            print("{:15}|{:20}".format(iter//num_batches, bound))
+            message = "{:15}|{:20}|".format(iter//num_batches, bound)
+            if iter % 100 == 0:
+                test_bound = -vae_lower_bound(gen_params, rec_params, test_images, seed) / data_dim
+                message += "{:20}".format(test_bound)
+            print(message)
 
             fake_data = generate_from_prior(gen_params, 20, latent_dim, seed)
             save_images(fake_data, 'vae_samples.png', vmin=0, vmax=1)

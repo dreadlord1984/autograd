@@ -2,12 +2,12 @@
 http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf"""
 from __future__ import absolute_import
 from __future__ import print_function
+from builtins import range
 
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.signal
 from autograd import grad
-from builtins import range
 import data_mnist
 
 convolve = autograd.scipy.signal.convolve
@@ -110,9 +110,9 @@ class maxpool_layer(object):
         for i in [0, 1]:
             pool_width = self.pool_shape[i]
             img_width = inputs.shape[i + 2]
-            new_shape += (pool_width, img_width // pool_width)
+            new_shape += (img_width // pool_width, pool_width)
         result = inputs.reshape(new_shape)
-        return np.max(np.max(result, axis=2), axis=3)
+        return np.max(np.max(result, axis=3), axis=4)
 
 class full_layer(object):
     def __init__(self, size):

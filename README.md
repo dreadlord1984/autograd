@@ -1,13 +1,14 @@
-# Autograd  [![Test status](https://travis-ci.org/HIPS/autograd.svg?branch=master)](https://travis-ci.org/HIPS/autograd)
+# Autograd  [![Test status](https://travis-ci.org/HIPS/autograd.svg?branch=master)](https://travis-ci.org/HIPS/autograd) [![asv](http://img.shields.io/badge/benchmarked%20by-asv-green.svg?style=flat)](#)
 
 Autograd can automatically differentiate native Python and Numpy code. It can
 handle a large subset of Python's features, including loops, ifs, recursion and
 closures, and it can even take derivatives of derivatives of derivatives. It
-uses reverse-mode differentiation (a.k.a. backpropagation), which means it can
-efficiently take gradients of scalar-valued functions with respect to
-array-valued arguments. The main intended application is gradient-based
-optimization. For more information, check out the [tutorial](docs/tutorial.md)
-and the [examples directory](examples/).
+supports reverse-mode differentiation (a.k.a. backpropagation), which means it
+can efficiently take gradients of scalar-valued functions with respect to
+array-valued arguments, as well as forward-mode differentiation, and the two can
+be composed arbitrarily. The main intended application of Autograd is
+gradient-based optimization. For more information, check out the
+[tutorial](docs/tutorial.md) and the [examples directory](examples/).
 
 Example use:
 
@@ -16,38 +17,30 @@ Example use:
 >>> from autograd import grad    # The only autograd function you may ever need
 >>>
 >>> def tanh(x):                 # Define a function
-...     y = np.exp(-x)
+...     y = np.exp(-2.0 * x)
 ...     return (1.0 - y) / (1.0 + y)
 ...
 >>> grad_tanh = grad(tanh)       # Obtain its gradient function
 >>> grad_tanh(1.0)               # Evaluate the gradient at x = 1.0
-0.39322386648296376
+0.41997434161402603
 >>> (tanh(1.0001) - tanh(0.9999)) / 0.0002  # Compare to finite differences
-0.39322386636453377
+0.41997434264973155
 ```
 
-We can continue to differentiate as many times as we like:
+We can continue to differentiate as many times as we like, and use numpy's
+vectorization of scalar-valued functions across many different input values:
 
 ```python
->>> def elementwise_grad(fun):                   # A wrapper for broadcasting
-...     return grad(lambda x: np.sum(fun(x)))    # (closures are no problem)
-...
->>> grad_tanh   = elementwise_grad(tanh)
->>> grad_tanh_2 = elementwise_grad(grad_tanh)    # 2nd derivative
->>> grad_tanh_3 = elementwise_grad(grad_tanh_2)  # 3rd derivative
->>> grad_tanh_4 = elementwise_grad(grad_tanh_3)  # etc.
->>> grad_tanh_5 = elementwise_grad(grad_tanh_4)
->>> grad_tanh_6 = elementwise_grad(grad_tanh_5)
->>>
+>>> from autograd import elementwise_grad as egrad  # for functions that vectorize over inputs
 >>> import matplotlib.pyplot as plt
 >>> x = np.linspace(-7, 7, 200)
 >>> plt.plot(x, tanh(x),
-...          x, grad_tanh(x),
-...          x, grad_tanh_2(x),
-...          x, grad_tanh_3(x),
-...          x, grad_tanh_4(x),
-...          x, grad_tanh_5(x),
-...          x, grad_tanh_6(x))
+...          x, egrad(tanh)(x),                                     # first  derivative
+...          x, egrad(egrad(tanh))(x),                              # second derivative
+...          x, egrad(egrad(egrad(tanh)))(x),                       # third  derivative
+...          x, egrad(egrad(egrad(egrad(tanh))))(x),                # fourth derivative
+...          x, egrad(egrad(egrad(egrad(egrad(tanh)))))(x),         # fifth  derivative
+...          x, egrad(egrad(egrad(egrad(egrad(egrad(tanh))))))(x))  # sixth  derivative
 >>> plt.show()
 ```
 
@@ -83,8 +76,8 @@ Just run `pip install autograd`
 Autograd was written by [Dougal Maclaurin](https://dougalmaclaurin.com),
 [David Duvenaud](https://www.cs.toronto.edu/~duvenaud/)
 and [Matt Johnson](http://people.csail.mit.edu/mattjj/),
-and we're actively
-developing it. Please feel free to submit any bugs or feature requests.
+and we're actively developing it.
+Please feel free to submit any bugs or feature requests.
 We'd also love to hear about your experiences with autograd in general.
 Drop us an email!
 
